@@ -22,8 +22,7 @@
       .input input { flex: 1; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: #0b0f19; color: var(--fg); outline: none; }
       .input button { padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(79,70,229,.4); background: var(--accent); color: #fff; cursor: pointer; }
       .input button[disabled] { opacity: .6; cursor: not-allowed; }
-      .footer { color: var(--muted); font-size: 12px; padding-top: 10px; display: flex; gap: 10px; align-items: center; }
-      .tag { padding: 4px 8px; border-radius: 999px; background: rgba(79,70,229,.15); border: 1px solid rgba(79,70,229,.35); color: #c7c9ff; font-size: 12px; }
+      /* footer removed per request */
       @media (max-width: 640px) { .messages { padding: 14px; } .bubble { max-width: 100%; } }
     </style>
   </head>
@@ -45,10 +44,7 @@
         </form>
       </div>
 
-      <div class="footer">
-        <span class="tag" id="apiTag">API: loading...</span>
-        <span>Tip: add ?api=https://your-api to override backend URL</span>
-      </div>
+      
     </div>
 
     <script>
@@ -60,7 +56,7 @@
         apiBase = overrideRaw;
       }
       apiBase = apiBase.replace(/\/$/, '');
-      document.getElementById('apiTag').textContent = `API: ${apiBase}`;
+      // API indicator removed per request
 
       const messagesEl = document.getElementById('messages');
       const formEl = document.getElementById('form');
@@ -90,6 +86,24 @@
           const data = await res.json();
           const reply = data?.response ?? '[No response]';
           appendMessage('assistant', reply);
+
+          // Notify parent (PreviewResult) about the agent response for logging/export
+          if (window.parent && window.parent !== window) {
+            const msg = {
+              type: 'interaction_log',
+              data: {
+                event_type: 'agent_response',
+                timestamp: new Date().toISOString(),
+                input: text,
+                response: reply,
+                success: true,
+                processing_time_ms: data?.usage ? 0 : 0,
+                agent_name: 'Demo Assistant',
+                source: 'iframe_demo'
+              }
+            };
+            window.parent.postMessage(msg, '*');
+          }
         } catch (err) {
           appendMessage('assistant', `Error: ${err.message || err}`);
         } finally {
@@ -106,6 +120,36 @@
         inputEl.value = '';
         appendMessage('user', text);
         sendMessage(text);
+      });
+
+      // PostMessage protocol to interact with parent PreviewResult.tsx
+      // 1) Signal readiness
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'iframe_ready', data: { page: 'frontend-demo' } }, '*');
+      }
+
+      // 2) Handle parent -> iframe messages
+      window.addEventListener('message', (event) => {
+        // In production, validate event.origin here
+        const msg = event.data || {};
+        if (!msg || typeof msg !== 'object') return;
+
+        // Display an execution result pushed from parent (optional)
+        if (msg.type === 'agentExecutionResult') {
+          const responseText = msg?.data?.agent_response || msg?.data?.response || '[No response]';
+          appendMessage('assistant', responseText);
+          return;
+        }
+
+        // Allow parent assistant to trigger a chat round inside the iframe
+        // Expected shape: { type: 'assistant_chat', data: { message: string } }
+        if (msg.type === 'assistant_chat' && msg.data && typeof msg.data.message === 'string') {
+          const incoming = msg.data.message.trim();
+          if (!incoming) return;
+          appendMessage('user', incoming);
+          sendMessage(incoming);
+          return;
+        }
       });
     </script>
   </body>
