@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Agentum AI - Demo Chat</title>
+    <style>
+      :root { --bg: #0b0f19; --fg: #e6e8ee; --muted: #9aa4b2; --accent: #4f46e5; --bubble: #111828; --user: #1f2937; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: linear-gradient(180deg, #0b0f19 0%, #0b0f19 60%, #0e1424 100%); color: var(--fg); font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, Noto Sans, 'Apple Color Emoji', 'Segoe UI Emoji'; }
+      .container { max-width: 900px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; padding: 24px 16px; }
+      header { display: flex; align-items: center; gap: 12px; padding: 8px 0 16px; }
+      header .dot { width: 10px; height: 10px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.2); }
+      header h1 { font-size: 18px; margin: 0; }
+      header .desc { color: var(--muted); font-size: 14px; }
+      .card { background: rgba(17, 24, 39, 0.6); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; flex: 1; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: blur(10px); }
+      .messages { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+      .bubble { max-width: min(80%, 680px); padding: 12px 14px; border-radius: 14px; white-space: pre-wrap; word-wrap: break-word; }
+      .bubble.assistant { background: var(--bubble); border: 1px solid rgba(255,255,255,0.06); align-self: flex-start; }
+      .bubble.user { background: var(--user); border: 1px solid rgba(255,255,255,0.06); align-self: flex-end; }
+      .input { border-top: 1px solid rgba(255,255,255,0.06); padding: 14px; display: flex; gap: 10px; background: rgba(11, 15, 25, 0.7); }
+      .input input { flex: 1; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: #0b0f19; color: var(--fg); outline: none; }
+      .input button { padding: 12px 16px; border-radius: 12px; border: 1px solid rgba(79,70,229,.4); background: var(--accent); color: #fff; cursor: pointer; }
+      .input button[disabled] { opacity: .6; cursor: not-allowed; }
+      .footer { color: var(--muted); font-size: 12px; padding-top: 10px; display: flex; gap: 10px; align-items: center; }
+      .tag { padding: 4px 8px; border-radius: 999px; background: rgba(79,70,229,.15); border: 1px solid rgba(79,70,229,.35); color: #c7c9ff; font-size: 12px; }
+      @media (max-width: 640px) { .messages { padding: 14px; } .bubble { max-width: 100%; } }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="dot"></div>
+        <div>
+          <h1>Agentum AI - Demo Chat</h1>
+          <div class="desc">A minimal, stateless chat UI backed by the demo API</div>
+        </div>
+      </header>
+
+      <div class="card">
+        <div id="messages" class="messages"></div>
+        <form id="form" class="input">
+          <input id="input" type="text" placeholder="Type a message and press Enter..." autocomplete="off" />
+          <button id="send" type="submit">Send</button>
+        </form>
+      </div>
+
+      <div class="footer">
+        <span class="tag" id="apiTag">API: loading...</span>
+        <span>Tip: add ?api=https://your-api to override backend URL</span>
+      </div>
+    </div>
+
+    <script>
+      const DEFAULT_API_BASE = 'https://demo.lemonriver-04024b99.westus2.azurecontainerapps.io';
+      const params = new URLSearchParams(window.location.search);
+      const overrideRaw = params.get('api');
+      let apiBase = DEFAULT_API_BASE;
+      if (overrideRaw && /^https?:\/\//i.test(overrideRaw)) {
+        apiBase = overrideRaw;
+      }
+      apiBase = apiBase.replace(/\/$/, '');
+      document.getElementById('apiTag').textContent = `API: ${apiBase}`;
+
+      const messagesEl = document.getElementById('messages');
+      const formEl = document.getElementById('form');
+      const inputEl = document.getElementById('input');
+      const sendEl = document.getElementById('send');
+
+      const appendMessage = (role, text) => {
+        const div = document.createElement('div');
+        div.className = `bubble ${role}`;
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      };
+
+      appendMessage('assistant', 'Hi! I am the Agentum AI demo assistant. Send me a message to see a demo response.');
+
+      const sendMessage = async (text) => {
+        sendEl.disabled = true;
+        inputEl.disabled = true;
+        try {
+          const res = await fetch(`${apiBase}/api/v1/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text })
+          });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const data = await res.json();
+          const reply = data?.response ?? '[No response]';
+          appendMessage('assistant', reply);
+        } catch (err) {
+          appendMessage('assistant', `Error: ${err.message || err}`);
+        } finally {
+          sendEl.disabled = false;
+          inputEl.disabled = false;
+          inputEl.focus();
+        }
+      };
+
+      formEl.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const text = inputEl.value.trim();
+        if (!text) return;
+        inputEl.value = '';
+        appendMessage('user', text);
+        sendMessage(text);
+      });
+    </script>
+  </body>
+  </html>
+
+
