@@ -6,8 +6,8 @@ Add this snippet to your app (e.g., in `index.html` or your main JS entry) to ac
 <script>
 (function () {
   const allowedOrigins = [
-    'http://localhost:8080',           // Dev (Agentum frontend)
-    'https://your-agentum-domain.com'  // Replace with production domain
+    'http://localhost:8080',           // Dev
+    'https://agentum.me'
   ];
 
   function isAllowedOrigin(origin) {
@@ -47,5 +47,4 @@ const profile = await window.agentumFetch('/api/me').then(r => r.json());
 
 Notes
 - Prefer token/sessionStorage auth over cookies in iframes.
-- Replace the production origin in `allowedOrigins`.
 
